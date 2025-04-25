@@ -58,7 +58,7 @@ def create_graphs(site_code: str):
         plt.ylim(bottom=0)
         plt.tight_layout()
 
-        plt.savefig(graphs_dir / f'{column}.png')
+        plt.savefig(graphs_dir / f'{site_code}_{column}.png')
         plt.close()
 
         # Yearly summary graphs
@@ -82,7 +82,7 @@ def create_graphs(site_code: str):
         plt.ylabel(f'Total {column}')
         plt.tight_layout()
 
-        plt.savefig(graphs_dir / f'{column}_yearly_sum.png')
+        plt.savefig(graphs_dir / f'{site_code}_{column}_yearly_sum.png')
         plt.close()
 
 
