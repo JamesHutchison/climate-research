@@ -54,12 +54,15 @@ def compute_daily_percentiles(df):
             'month': month,
             'day': day,
             'dw_solar_50': np.percentile(group['dw_solar'], 50),
+            'dw_solar_75': np.percentile(group['dw_solar'], 75),
             'dw_solar_90': np.percentile(group['dw_solar'], 90),
             'dw_solar_99': np.percentile(group['dw_solar'], 99),
             'uw_solar_50': np.percentile(group['uw_solar'], 50),
+            'uw_solar_75': np.percentile(group['uw_solar'], 75),
             'uw_solar_90': np.percentile(group['uw_solar'], 90),
             'uw_solar_99': np.percentile(group['uw_solar'], 99),
             'direct_n_50': np.percentile(group['direct_n'], 50),
+            'direct_n_75': np.percentile(group['direct_n'], 75),
             'direct_n_90': np.percentile(group['direct_n'], 90),
             'direct_n_99': np.percentile(group['direct_n'], 99),
         })
@@ -71,7 +74,7 @@ def compute_daily_sums(df):
     # Filter values > -10 for summing
     df_filtered = df.copy()
     for col in ['dw_solar', 'uw_solar', 'direct_n']:
-        df_filtered.loc[df_filtered[col] <= -10, col] = 0
+        df_filtered.loc[df_filtered[col] < 1, col] = 0
 
     grouped = df_filtered.groupby(['year', 'month', 'day'])
     result = grouped.agg({
@@ -114,7 +117,7 @@ def process_directory(base_dir, year):
 
 
 def main():
-    stations = ['smo']  # ['brw', 'mlo', 'spo']
+    stations = ['brw', 'mlo', 'spo', 'smo']
     for station in stations:
         base_dir = current_dir / station
         all_results = []
