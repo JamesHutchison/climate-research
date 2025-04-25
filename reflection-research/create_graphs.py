@@ -65,32 +65,63 @@ def create_graphs(site_code: str, max_year=2024):
         plt.close()
 
         # Yearly summary graphs
-        plt.figure()
-        # Filter out values less than -10 before grouping and summing
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+
+        # Filter out values less than -10 before grouping
         filtered_df = df[df[column] >= -10]
         yearly_sums = filtered_df.groupby('year')[column].sum()
+        # Count valid days per year
+        valid_days = filtered_df.groupby('year')[column].count()
+        yearly_means = yearly_sums / valid_days
+
         if len(yearly_sums) > 0:
-            plt.bar(yearly_sums.index, yearly_sums.values)
+            # Plot sums
+            ax1.bar(yearly_sums.index, yearly_sums.values)
 
-            # Add trend line for yearly data
+            # Calculate trendline without outliers
+            # Create years_numeric here
             years_numeric = np.arange(len(yearly_sums))
-            z = np.polyfit(years_numeric, yearly_sums.values, 1)
+            sorted_indices = np.argsort(yearly_sums.values)
+            # Remove 2 highest and 2 lowest
+            filtered_indices = sorted_indices[2:-2]
+            filtered_years = years_numeric[filtered_indices]
+            filtered_sums = yearly_sums.values[filtered_indices]
+            z = np.polyfit(filtered_years, filtered_sums, 1)
             p = np.poly1d(z)
-            plt.plot(yearly_sums.index, p(years_numeric),
-                     "r--", alpha=0.8, label='Trend')
-            plt.legend()
+            ax1.plot(yearly_sums.index, p(years_numeric),
+                     "r--", alpha=0.8, label='Trend (excluding outliers)')
+            ax1.legend()
+            ax1.set_title(f'{site_code.upper()} - {column} (Yearly Sum)')
+            ax1.set_xlabel('Year')
+            ax1.set_ylabel(f'Total {column}')
 
-            plt.title(
-                f'{site_code.upper()} - {column} (Yearly Sum)')
-            plt.xlabel('Year')
-            plt.ylabel(f'Total {column}')
+            # Plot means
+            ax2.bar(yearly_means.index, yearly_means.values)
+
+            # Calculate mean trendline without outliers
+            sorted_mean_indices = np.argsort(yearly_means.values)
+            # Remove 2 highest and 2 lowest
+            filtered_mean_indices = sorted_mean_indices[2:-2]
+            filtered_mean_years = np.arange(len(filtered_mean_indices))
+            filtered_means = yearly_means.values[filtered_mean_indices]
+            z_mean = np.polyfit(filtered_mean_years, filtered_means, 1)
+            p_mean = np.poly1d(z_mean)
+            ax2.plot(yearly_means.index, p_mean(years_numeric),
+                     "r--", alpha=0.8, label='Trend (excluding outliers)')
+            ax2.legend()
+            ax2.set_title(
+                f'{site_code.upper()} - {column} (Daily Mean per Year)')
+            ax2.set_xlabel('Year')
+            ax2.set_ylabel(f'Mean {column} per day')
+
             plt.tight_layout()
-
-            plt.savefig(graphs_dir / f'{site_code}_{column}_yearly_sum.png')
+            plt.savefig(
+                graphs_dir / f'{site_code}_{column}_yearly_summary.png')
             plt.close()
 
 
 if __name__ == '__main__':
-    # create_graphs('brw', 2024)
+    create_graphs('brw', 2024)
     create_graphs('spo', 2023)
     create_graphs('mlo', 2024)
+    create_graphs('smo', 2024)
