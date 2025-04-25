@@ -66,8 +66,8 @@ def create_graphs(site_code: str, max_year=2024):
         # Yearly summary graphs
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
 
-        # Filter out values less than -10 before grouping
-        filtered_df = df[df[column] >= -10]
+        # Filter out values less than 1
+        filtered_df = df[df[column] >= 1]
         yearly_sums = filtered_df.groupby('year')[column].sum()
         # Count valid days per year
         valid_days = filtered_df.groupby('year')[column].count()
