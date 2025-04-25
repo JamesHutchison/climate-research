@@ -32,9 +32,11 @@ def create_graphs(site_code: str, max_year=2024):
     value_columns = df.columns.difference(
         ['year', 'month', 'day', 'day_of_year'])
 
-    # Get first and last 3 years
+    # Get first and last 4 years
     all_years = sorted(df['year'].unique())
-    focus_years = all_years[:4] + all_years[-4:]
+    first_years = all_years[:4]
+    last_years = all_years[-4:]
+    focus_years = first_years + last_years
 
     # Define quarters
     quarters = {
@@ -60,59 +62,115 @@ def create_graphs(site_code: str, max_year=2024):
             year_positions = {year: i/(len(focus_years)-1)
                               for i, year in enumerate(focus_years)}
 
-            for year in focus_years:
-                yearly_data = df[df['year'] == year]
-                quarter_data = yearly_data[
-                    (yearly_data['day_of_year'] >= start_day) &
-                    (yearly_data['day_of_year'] <= end_day)
-                ]
+            for period, years in [("First 4 years", first_years), ("Last 4 years", last_years)]:
+                # Initialize lists to store all detrended data for this period
+                all_rel_stds = []
+                all_days = []
 
-                normalized_days = quarter_data['day_of_year'] - start_day
-                color = year_colors(year_positions[year])
+                for year in years:
+                    yearly_data = df[df['year'] == year]
+                    quarter_data = yearly_data[
+                        (yearly_data['day_of_year'] >= start_day) &
+                        (yearly_data['day_of_year'] <= end_day)
+                    ]
 
-                # Plot original data
-                ax1.plot(normalized_days, quarter_data[column],
-                         label=f"{year}",
-                         color=color,
-                         alpha=0.8)
+                    if len(quarter_data) < 5:  # Skip if not enough data points
+                        continue
 
-                # Filter values less than 10
-                normalized_days_safe = normalized_days.copy()
-                valid_mask = normalized_days_safe > 10
-                normalized_days_safe = normalized_days_safe[valid_mask]
-                quarter_data_safe = quarter_data[column][valid_mask]
+                    normalized_days = quarter_data['day_of_year'] - start_day
 
-                # Fit using numpy
-                coeffs = np.polyfit(
-                    np.log(normalized_days_safe), quarter_data_safe, deg=2)
+                    # Plot original data with period-specific color
+                    color = 'darkblue' if period == "First 4 years" else 'darkgreen'
+                    ax1.plot(normalized_days, quarter_data[column],
+                             label=f"{year}",
+                             color=color,
+                             alpha=0.3)
 
-                # Evaluate fitted trend
-                fitted_trend = coeffs[0] * \
-                    np.log(normalized_days_safe) + coeffs[1]
+                    # Filter spikes using rolling median
+                    rolling_med = quarter_data[column].rolling(
+                        window=5, center=True).median()
+                    spike_threshold = rolling_med.std() * 3  # 3 sigma threshold
+                    is_spike = abs(
+                        quarter_data[column] - rolling_med) > spike_threshold
+                    clean_data = quarter_data[column].copy()
+                    clean_data[is_spike] = rolling_med[is_spike]
 
-                # Detrend
-                detrended_data = quarter_data[column] - fitted_trend
-                # Calculate relative standard deviation as percentage
-                rolling_mean = detrended_data.rolling(
-                    window=5, min_periods=2).mean()
-                rolling_std = detrended_data.rolling(
-                    window=5, min_periods=2).std()
-                # Convert to percentage
-                rolling_rel_std = (rolling_std / rolling_mean.abs()) * 100
-                ax2.plot(normalized_days, rolling_rel_std,
-                         label=f"{year}",
-                         color=color,
-                         alpha=0.8)
+                    # Calculate detrended data with cleaned values
+                    normalized_days_safe = normalized_days.copy()
+                    valid_mask = normalized_days_safe > 10
+                    normalized_days_safe = normalized_days_safe[valid_mask]
+                    quarter_data_safe = clean_data[valid_mask]
+
+                    if len(quarter_data_safe) < 5:  # Skip if not enough valid points
+                        continue
+
+                    coeffs = np.polyfit(
+                        np.log(normalized_days_safe), quarter_data_safe, deg=2)
+                    fitted_trend = coeffs[0] * \
+                        np.log(normalized_days_safe) + coeffs[1]
+                    detrended_data = clean_data - fitted_trend
+
+                    # Calculate relative standard deviation with error handling
+                    rolling_mean = detrended_data.rolling(
+                        window=5, min_periods=5).mean()
+                    rolling_std = detrended_data.rolling(
+                        window=5, min_periods=5).std()
+
+                    # Avoid division by zero or very small values
+                    rolling_rel_std = pd.Series(np.zeros_like(
+                        rolling_mean), index=rolling_mean.index)
+                    valid_mean = abs(rolling_mean) > 1e-6
+                    rolling_rel_std[valid_mean] = (
+                        rolling_std[valid_mean] / rolling_mean[valid_mean].abs()) * 100
+
+                    # Filter out extreme values
+                    rolling_rel_std = rolling_rel_std.clip(
+                        0, 100)  # Cap at 100%
+
+                    all_rel_stds.append(rolling_rel_std)
+                    all_days.append(normalized_days)
+
+                # Only proceed if we have valid data
+                if not all_rel_stds:
+                    continue
+
+                # Calculate mean standard deviation for this period
+                common_days = np.arange(start_day, end_day + 1) - start_day
+                resampled_stds = []
+
+                for days, rel_std in zip(all_days, all_rel_stds):
+                    valid = ~np.isnan(rel_std) & (
+                        rel_std > 0) & (rel_std < 100)
+                    if valid.sum() >= 5:  # Only include if enough valid points
+                        resampled = np.interp(common_days,
+                                              days[valid],
+                                              rel_std[valid],
+                                              left=np.nan, right=np.nan)
+                        resampled_stds.append(resampled)
+
+                if resampled_stds:
+                    mean_std = np.nanmean(resampled_stds, axis=0)
+                    # Additional smoothing of the final result
+                    smooth_window = 5
+                    mean_std = pd.Series(mean_std).rolling(
+                        smooth_window, center=True, min_periods=3).mean()
+
+                    color = 'blue' if period == "First 4 years" else 'green'
+                    ax2.plot(common_days, mean_std,
+                             label=f"Average {period}",
+                             color=color,
+                             linewidth=2)
 
             ax1.set_title(
-                f'{site_code.upper()} - {column} ({q_name.upper()})\nFirst/Last 3 Years Comparison')
+                f'{site_code.upper()} - {column} ({q_name.upper()})\nFirst/Last 4 Years')
             ax1.set_xlabel(f'Days (from start of {q_name.upper()})')
             ax1.set_ylabel(column)
             ax1.legend()
             ax1.grid(True, alpha=0.3)
             ax1.set_ylim(bottom=0)
 
-            ax2.set_title('5-Day Rolling Relative Standard Deviation')
+            ax2.set_title(
+                '5-Day Rolling Relative Std-Dev vs 5 Day Rolling Mean')
             ax2.set_xlabel(f'Days (from start of {q_name.upper()})')
             ax2.set_ylabel(f'Relative Standard Deviation of {column} (%)')
             ax2.legend()
