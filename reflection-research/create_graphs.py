@@ -6,13 +6,16 @@ from pathlib import Path
 from matplotlib.colors import LinearSegmentedColormap
 
 
-def create_graphs(site_code: str):
+def create_graphs(site_code: str, max_year=2024):
     # Get the script's directory and construct CSV path
     script_dir = Path(__file__).parent
     csv_path = script_dir / f'output_{site_code}.csv'
 
     # Load the CSV data
     df = pd.read_csv(csv_path)
+
+    # Filter out data beyond max_year
+    df = df[df['year'] <= max_year]
 
     # Combine the year, month, and day into a single date column
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
@@ -66,25 +69,28 @@ def create_graphs(site_code: str):
         # Filter out values less than -10 before grouping and summing
         filtered_df = df[df[column] >= -10]
         yearly_sums = filtered_df.groupby('year')[column].sum()
-        plt.bar(yearly_sums.index, yearly_sums.values)
+        if len(yearly_sums) > 0:
+            plt.bar(yearly_sums.index, yearly_sums.values)
 
-        # Add trend line for yearly data
-        years_numeric = np.arange(len(yearly_sums))
-        z = np.polyfit(years_numeric, yearly_sums.values, 1)
-        p = np.poly1d(z)
-        plt.plot(yearly_sums.index, p(years_numeric),
-                 "r--", alpha=0.8, label='Trend')
-        plt.legend()
+            # Add trend line for yearly data
+            years_numeric = np.arange(len(yearly_sums))
+            z = np.polyfit(years_numeric, yearly_sums.values, 1)
+            p = np.poly1d(z)
+            plt.plot(yearly_sums.index, p(years_numeric),
+                     "r--", alpha=0.8, label='Trend')
+            plt.legend()
 
-        plt.title(
-            f'{site_code.upper()} - {column} (Yearly Sum)')
-        plt.xlabel('Year')
-        plt.ylabel(f'Total {column}')
-        plt.tight_layout()
+            plt.title(
+                f'{site_code.upper()} - {column} (Yearly Sum)')
+            plt.xlabel('Year')
+            plt.ylabel(f'Total {column}')
+            plt.tight_layout()
 
-        plt.savefig(graphs_dir / f'{site_code}_{column}_yearly_sum.png')
-        plt.close()
+            plt.savefig(graphs_dir / f'{site_code}_{column}_yearly_sum.png')
+            plt.close()
 
 
 if __name__ == '__main__':
-    create_graphs('brw')
+    # create_graphs('brw', 2024)
+    create_graphs('spo', 2023)
+    create_graphs('mlo', 2024)

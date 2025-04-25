@@ -114,7 +114,7 @@ def process_directory(base_dir, year):
 
 
 def main():
-    stations = ['brw']  # [ 'mlo', 'spo']
+    stations = ['smo']  # ['brw', 'mlo', 'spo']
     for station in stations:
         base_dir = current_dir / station
         all_results = []

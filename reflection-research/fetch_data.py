@@ -14,7 +14,7 @@ from datetime import datetime, date
 # leap years have 366 files, non-leap years have 365 files
 
 BASE_URL = "https://gml.noaa.gov/aftp/data/radiation/baseline"
-LOCATIONS = ["brw", "mlo", "spo"]
+LOCATIONS = ["smo"]  # ["brw", "mlo", "spo"]
 START_YEAR = 1998
 END_YEAR = datetime.now().year
 
