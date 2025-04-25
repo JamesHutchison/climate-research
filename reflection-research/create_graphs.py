@@ -34,7 +34,7 @@ def create_graphs(site_code: str, max_year=2024):
 
     # Get first and last 3 years
     all_years = sorted(df['year'].unique())
-    focus_years = all_years[:3] + all_years[-3:]
+    focus_years = all_years[:4] + all_years[-4:]
 
     # Define quarters
     quarters = {
@@ -49,7 +49,8 @@ def create_graphs(site_code: str, max_year=2024):
     # Generate quarterly plots for focus years
     for column in value_columns:
         for q_name, (start_day, end_day) in quarters.items():
-            plt.figure(figsize=(10, 6))
+            # Create figure with two subplots
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
 
             # Create color map from blue to green
             year_colors = LinearSegmentedColormap.from_list(
@@ -67,19 +68,57 @@ def create_graphs(site_code: str, max_year=2024):
                 ]
 
                 normalized_days = quarter_data['day_of_year'] - start_day
+                color = year_colors(year_positions[year])
 
-                plt.plot(normalized_days, quarter_data[column],
+                # Plot original data
+                ax1.plot(normalized_days, quarter_data[column],
                          label=f"{year}",
-                         color=year_colors(year_positions[year]),
+                         color=color,
                          alpha=0.8)
 
-            plt.title(
+                # Filter values less than 10
+                normalized_days_safe = normalized_days.copy()
+                valid_mask = normalized_days_safe > 10
+                normalized_days_safe = normalized_days_safe[valid_mask]
+                quarter_data_safe = quarter_data[column][valid_mask]
+
+                # Fit using numpy
+                coeffs = np.polyfit(
+                    np.log(normalized_days_safe), quarter_data_safe, deg=2)
+
+                # Evaluate fitted trend
+                fitted_trend = coeffs[0] * \
+                    np.log(normalized_days_safe) + coeffs[1]
+
+                # Detrend
+                detrended_data = quarter_data[column] - fitted_trend
+                # Calculate relative standard deviation as percentage
+                rolling_mean = detrended_data.rolling(
+                    window=5, min_periods=2).mean()
+                rolling_std = detrended_data.rolling(
+                    window=5, min_periods=2).std()
+                # Convert to percentage
+                rolling_rel_std = (rolling_std / rolling_mean.abs()) * 100
+                ax2.plot(normalized_days, rolling_rel_std,
+                         label=f"{year}",
+                         color=color,
+                         alpha=0.8)
+
+            ax1.set_title(
                 f'{site_code.upper()} - {column} ({q_name.upper()})\nFirst/Last 3 Years Comparison')
-            plt.xlabel(f'Days (from start of {q_name.upper()})')
-            plt.ylabel(column)
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            plt.ylim(bottom=0)
+            ax1.set_xlabel(f'Days (from start of {q_name.upper()})')
+            ax1.set_ylabel(column)
+            ax1.legend()
+            ax1.grid(True, alpha=0.3)
+            ax1.set_ylim(bottom=0)
+
+            ax2.set_title('5-Day Rolling Relative Standard Deviation')
+            ax2.set_xlabel(f'Days (from start of {q_name.upper()})')
+            ax2.set_ylabel(f'Relative Standard Deviation of {column} (%)')
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
+            ax2.set_ylim(bottom=0)
+
             plt.tight_layout()
 
             plt.savefig(
