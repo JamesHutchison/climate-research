@@ -32,16 +32,66 @@ def create_graphs(site_code: str, max_year=2024):
     value_columns = df.columns.difference(
         ['year', 'month', 'day', 'day_of_year'])
 
-    # Since we only have data for 1998, the loop will only iterate once
-    years = df['year'].unique()
+    # Get first and last 3 years
+    all_years = sorted(df['year'].unique())
+    focus_years = all_years[:3] + all_years[-3:]
+
+    # Define quarters
+    quarters = {
+        'q1': (1, 90),   # Jan-Mar
+        'q2': (91, 181),  # Apr-Jun
+        'q3': (182, 273),  # Jul-Sep
+        'q4': (274, 366)  # Oct-Dec
+    }
+
     colors = plt.colormaps['coolwarm']
+
+    # Generate quarterly plots for focus years
+    for column in value_columns:
+        for q_name, (start_day, end_day) in quarters.items():
+            plt.figure(figsize=(10, 6))
+
+            # Create color map from blue to green
+            year_colors = LinearSegmentedColormap.from_list(
+                '', ['darkblue', 'green'])
+
+            # Create normalized color values (0 to 1) for each year
+            year_positions = {year: i/(len(focus_years)-1)
+                              for i, year in enumerate(focus_years)}
+
+            for year in focus_years:
+                yearly_data = df[df['year'] == year]
+                quarter_data = yearly_data[
+                    (yearly_data['day_of_year'] >= start_day) &
+                    (yearly_data['day_of_year'] <= end_day)
+                ]
+
+                normalized_days = quarter_data['day_of_year'] - start_day
+
+                plt.plot(normalized_days, quarter_data[column],
+                         label=f"{year}",
+                         color=year_colors(year_positions[year]),
+                         alpha=0.8)
+
+            plt.title(
+                f'{site_code.upper()} - {column} ({q_name.upper()})\nFirst/Last 3 Years Comparison')
+            plt.xlabel(f'Days (from start of {q_name.upper()})')
+            plt.ylabel(column)
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.ylim(bottom=0)
+            plt.tight_layout()
+
+            plt.savefig(
+                graphs_dir / f'{site_code}_{column}_focused_{q_name}.png')
+            plt.close()
 
     # Create a separate plot for each column
     for column in value_columns:
         # Daily graphs
         plt.figure()
         # Create alternating order of years (new/old)
-        sorted_years = sorted(years)
+        sorted_years = sorted(all_years)
         colors = LinearSegmentedColormap.from_list(
             'custom', ['blue', 'yellow', 'green'])
         alternating_years = []
@@ -53,7 +103,7 @@ def create_graphs(site_code: str, max_year=2024):
         for i, year in enumerate(alternating_years):
             yearly_data = df[df['year'] == year]
             plt.plot(yearly_data['day_of_year'], yearly_data[column],
-                     color=colors(i/len(years)), alpha=0.35)
+                     color=colors(i/len(all_years)), alpha=0.35)
         plt.title(f'{site_code.upper()} - {column}')
         plt.xlabel('Day of Year')
         plt.ylabel(column)
