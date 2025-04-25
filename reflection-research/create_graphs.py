@@ -43,12 +43,11 @@ def create_graphs(site_code: str, max_year=2024):
         # Create alternating order of years (new/old)
         sorted_years = sorted(years)
         colors = LinearSegmentedColormap.from_list(
-            'custom', ['blue', 'yellow'])
+            'custom', ['blue', 'yellow', 'green'])
         alternating_years = []
         while sorted_years:
-            if (len(sorted_years) > 0):
-                alternating_years.append(sorted_years.pop())  # newest
-            if (len(sorted_years) > 0):
+            alternating_years.append(sorted_years.pop())  # newest
+            if sorted_years:
                 alternating_years.append(sorted_years.pop(0))  # oldest
 
         for i, year in enumerate(alternating_years):
@@ -79,16 +78,14 @@ def create_graphs(site_code: str, max_year=2024):
             ax1.bar(yearly_sums.index, yearly_sums.values)
 
             # Calculate trendline without outliers
-            # Create years_numeric here
-            years_numeric = np.arange(len(yearly_sums))
             sorted_indices = np.argsort(yearly_sums.values)
-            # Remove 2 highest and 2 lowest
-            filtered_indices = sorted_indices[2:-2]
-            filtered_years = years_numeric[filtered_indices]
+            # Remove highest and lowest
+            filtered_indices = sorted_indices[1:-1]
+            filtered_years = yearly_sums.index[filtered_indices]
             filtered_sums = yearly_sums.values[filtered_indices]
             z = np.polyfit(filtered_years, filtered_sums, 1)
             p = np.poly1d(z)
-            ax1.plot(yearly_sums.index, p(years_numeric),
+            ax1.plot(yearly_sums.index, p(yearly_sums.index),
                      "r--", alpha=0.8, label='Trend (excluding outliers)')
             ax1.legend()
             ax1.set_title(f'{site_code.upper()} - {column} (Yearly Sum)')
@@ -100,13 +97,13 @@ def create_graphs(site_code: str, max_year=2024):
 
             # Calculate mean trendline without outliers
             sorted_mean_indices = np.argsort(yearly_means.values)
-            # Remove 2 highest and 2 lowest
-            filtered_mean_indices = sorted_mean_indices[2:-2]
-            filtered_mean_years = np.arange(len(filtered_mean_indices))
+            # Remove highest and lowest
+            filtered_mean_indices = sorted_mean_indices[1:-1]
+            filtered_mean_years = yearly_means.index[filtered_mean_indices]
             filtered_means = yearly_means.values[filtered_mean_indices]
             z_mean = np.polyfit(filtered_mean_years, filtered_means, 1)
             p_mean = np.poly1d(z_mean)
-            ax2.plot(yearly_means.index, p_mean(years_numeric),
+            ax2.plot(yearly_means.index, p_mean(yearly_means.index),
                      "r--", alpha=0.8, label='Trend (excluding outliers)')
             ax2.legend()
             ax2.set_title(
