@@ -7,7 +7,7 @@ creditibility to bi-directional energy exchange creating a consistent "tunnel" o
 
 Current working name is "radiation pressure funnel".
 
-It is unclear if this is a radiation equivalent to a tornado or dust devil.
+It is unclear if this is a radiation equivalent to a tornado or dust devil. For now, this not speculated.
 
 Across all sites, p99 values are more consistent and slightly diminished, suggesting either equipment upgrades were carried out
 that altered characteristics of the data, or there is more energy exchange, in general, occurring across the globe.
